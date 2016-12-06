@@ -77,10 +77,10 @@ end
 
 
 
-function sorteddict_with_eltype{K,D,Ord}(kv, ::Type{Pair{K,D}}, o::Ord)
+function sorted_dict_with_eltype{K,D,Ord}(ps, ::Type{Pair{K,D}}, o::Ord)
     h = SortedDict{K,D,Ord}(o)
-    for (k,v) in kv
-        h[k] = v
+    for p in ps
+        h[p.first] = p.second
     end
     h
 end
