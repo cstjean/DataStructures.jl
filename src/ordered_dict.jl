@@ -93,8 +93,20 @@ similar{K,V}(d::OrderedDict{K,V}) = OrderedDict{K,V}()
 length(d::OrderedDict) = length(d.keys) - d.ndel
 isempty(d::OrderedDict) = (length(d)==0)
 
+"""
+    isordered(::Type)
+
+Property of associative containers, that is `true` if the container type has a
+defined order (such as `OrderedDict` and `SortedDict`), and `false` otherwise.
+"""
+isordered{T<:Associative}(::Type{T}) = false
+isordered{T<:OrderedDict}(::Type{T}) = true
+
 # conversion between OrderedDict types
-function convert{K,V}(::Type{OrderedDict{K,V}},d::Associative)
+function convert{K,V}(::Type{OrderedDict{K,V}}, d::Associative)
+    if !isordered(typeof(d))
+        Base.depwarn("Conversion from $(typeof(d)) to OrderedDict is deprecated. Use an ordered or sorted associative type.", :convert)
+    end
     h = OrderedDict{K,V}()
     for (k,v) in d
         ck = convert(K,k)

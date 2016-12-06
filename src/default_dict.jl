@@ -105,6 +105,7 @@ for _Dict in [:Dict, :OrderedDict]
     end
 end
 
+isordered{T<:DefaultOrderedDict}(::Type{T}) = true
 
 ## This should be uncommented to provide a DefaultSortedDict
 

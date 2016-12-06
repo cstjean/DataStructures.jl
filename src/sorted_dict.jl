@@ -290,4 +290,6 @@ end
 
 
 similar{K,D,Ord<:Ordering}(m::SortedDict{K,D,Ord}) =
-SortedDict{K,D,Ord}(orderobject(m))
+    SortedDict{K,D,Ord}(orderobject(m))
+
+isordered{T<:SortedDict}(::Type{T}) = true
