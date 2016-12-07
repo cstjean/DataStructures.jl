@@ -38,14 +38,14 @@ SortedDict{V  }(ps::Pair{TypeVar(:K),V}...,) = SortedDict{Any,V,ForwardOrdering}
 SortedDict(     ps::Pair...)                 = SortedDict{Any,Any,ForwardOrdering}(Forward, ps)
 
 # Constructors from Ordering + Pairs
-SortedDict{K,V,Ord<:Ordering}(o::Ord, ps::Pair{K,V}...)            = SortedDict{K,V,Ord}(o, ps)
-SortedDict{K  ,Ord<:Ordering}(o::Ord, ps::Pair{K}...,)             = SortedDict{K,Any,Ord}(o, ps)
-SortedDict{V  ,Ord<:Ordering}(o::Ord, ps::Pair{TypeVar(:K),V}...,) = SortedDict{Any,V,Ord}(o, ps)
-SortedDict{    Ord<:Ordering}(o::Ord, ps::Pair...)                 = SortedDict{Any,Any,Ord}(o, ps)
+SortedDict{K,V,Ord<:Ordering}(o::Ord, ps::Pair{K,V}...)           = SortedDict{K,V,Ord}(o, ps)
+SortedDict{K  ,Ord<:Ordering}(o::Ord, ps::Pair{K}...)             = SortedDict{K,Any,Ord}(o, ps)
+SortedDict{V  ,Ord<:Ordering}(o::Ord, ps::Pair{TypeVar(:K),V}...) = SortedDict{Any,V,Ord}(o, ps)
+SortedDict{    Ord<:Ordering}(o::Ord, ps::Pair...)                = SortedDict{Any,Any,Ord}(o, ps)
 
 # Constuctor from Associative
-SortedDict{K,D,Ord<:Ordering}(d::Associative{K,D}, o::Ord=Forward) = SortedDict{K,D,Ord}(o, d)
-SortedDict{K,D,Ord<:Ordering}(o::Ord, d::Associative{K,D}) = SortedDict{K,D,Ord}(o, d)
+SortedDict{K,V,Ord<:Ordering}(d::Associative{K,V}, o::Ord=Forward) = SortedDict{K,V,Ord}(o, d)
+SortedDict{K,V,Ord<:Ordering}(o::Ord, d::Associative{K,V}) = SortedDict{K,V,Ord}(o, d)
 
 ## Constructor which takes an iterable; ordering type is optional.
 
@@ -53,7 +53,7 @@ function SortedDict{Ord<:Ordering}(kv, o::Ord=Forward)
     try
         sorted_dict_with_eltype(kv, eltype(kv), o)
     catch e
-        if any(x->isempty(methods(x, (typeof(kv),))), [start, next, done]) ||
+        if any(x->isempty(methodswith(typeof(kv), x, true)), [start, next, done]) ||
             !all(x->isa(x,Union{Tuple,Pair}),kv)
             throw(ArgumentError("SortedDict(kv): kv needs to be an iterator of tuples or pairs"))
         else
@@ -66,7 +66,7 @@ function SortedDict{Ord<:Ordering}(o::Ord, kv)
     try
         sorted_dict_with_eltype(kv, eltype(kv), o)
     catch e
-        if any(x->isempty(methods(x, (typeof(kv),))), [start, next, done]) ||
+        if any(x->isempty(methodswith(typeof(kv), x, true)), [start, next, done]) ||
             !all(x->isa(x,Union{Tuple,Pair}),kv)
             throw(ArgumentError("SortedDict(kv): kv needs to be an iterator of tuples or pairs"))
         else
@@ -76,63 +76,36 @@ function SortedDict{Ord<:Ordering}(o::Ord, kv)
 end
 
 
-
-function sorted_dict_with_eltype{K,D,Ord}(ps, ::Type{Pair{K,D}}, o::Ord)
-    h = SortedDict{K,D,Ord}(o)
+function sorted_dict_with_eltype{K,V,Ord}(ps, ::Type{Pair{K,V}}, o::Ord)
+    h = SortedDict{K,V,Ord}(o)
     for p in ps
         h[p.first] = p.second
     end
     h
 end
+sorted_dict_with_eltype{K}(ps, ::Type{Pair{K}},             o) = sorted_dict_with_eltype(ps, Pair{K,Any},   o)
+sorted_dict_with_eltype{V}(ps, ::Type{Pair{TypeVar(:K),V}}, o) = sorted_dict_with_eltype(ps, Pair{Any,V},   o)
+sorted_dict_with_eltype(   ps, ::Type{Pair},                o) = sorted_dict_with_eltype(ps, Pair{Any,Any}, o)
 
+function sorted_dict_with_eltype{K,V,Ord}(kv, ::Type{Tuple{K,V}}, o::Ord)
+    h = SortedDict{K,V,Ord}(o)
+    for (k,v) in kv
+        h[k] = v
+    end
+    h
+end
+sorted_dict_with_eltype{K}(kv, ::Type{Tuple{K}},             o) = sorted_dict_with_eltype(kv, Tuple{K,Any},   o)
+sorted_dict_with_eltype{V}(kv, ::Type{Tuple{TypeVar(:K),V}}, o) = sorted_dict_with_eltype(kv, Tuple{Any,V},   o)
+sorted_dict_with_eltype(   kv, ::Type,                       o) = sorted_dict_with_eltype(kv, Tuple{Any,Any}, o)
 
 # Constructors with eltype {K,V} specified
-#@compat (::Type{SortedDict{K,V}}){K,V}() = SortedDict{K,V,ForwardOrdering}(Forward)
 @compat (::Type{SortedDict{K,V}}){K,V}(ps::Pair...) = SortedDict{K,V,ForwardOrdering}(Forward, ps)
-
-#@compat (::Type{SortedDict{K,V}}){K,V,Ord<:Ordering}(o::Ord) = SortedDict{K,V,Ord}(o)
 @compat (::Type{SortedDict{K,V}}){K,V,Ord<:Ordering}(o::Ord, ps::Pair...) = SortedDict{K,V,Ord}(o, ps)
-
-
-## external constructor to take an associative and infer argument types
-
-# function SortedDict{K, D, Ord <: Ordering}(d::Associative{K,D}, o::Ord=Forward)
-#     h = SortedDict{K,D,Ord}(o)
-#     for (k,v) in d
-#         h[k] = v
-#     end
-#     h
-# end
-
-
-
-## More constructors based on those in dict.jl:
-## Take pairs and infer argument
-## types.  Note:  this works only for the Forward ordering.
-
-# function SortedDict{K,D}(p::Pair{K,D}, ps::Pair{K,D}...)
-#     SortedDict{K,D,ForwardOrdering}(Base.Forward, p, ps...)
-# end
-
-
-## Take pairs and infer argument
-## types.  Ordering parameter must be explicit first argument.
-
-# function SortedDict{K,D, Ord <: Ordering}(o::Ord, p::Pair{K,D}, ps::Pair{K,D}...)
-#     SortedDict{K,D,Ord}(o, p, ps...)
-# end
-
-
-
-
 
 
 typealias SDSemiToken IntSemiToken
 
 typealias SDToken Tuple{SortedDict,IntSemiToken}
-
-
-
 
 ## This function implements m[k]; it returns the
 ## data item associated with key k.
@@ -147,16 +120,16 @@ end
 ## This function implements m[k]=d; it sets the
 ## data item associated with key k equal to d.
 
-@inline function setindex!{K, D, Ord <: Ordering}(m::SortedDict{K,D,Ord}, d_, k_)
-    insert!(m.bt, convert(K,k_), convert(D,d_), false)
+@inline function setindex!{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}, v_, k_)
+    insert!(m.bt, convert(K,k_), convert(V,v_), false)
     m
 end
 
 ## push! is an alternative to insert!; it returns the container.
 
 
-@inline function push!{K,D}(m::SortedDict{K,D}, pr::Pair)
-    insert!(m.bt, convert(K, pr[1]), convert(D, pr[2]), false)
+@inline function push!{K,V}(m::SortedDict{K,V}, pr::Pair)
+    insert!(m.bt, convert(K, pr[1]), convert(V, pr[2]), false)
     m
 end
 
@@ -181,30 +154,30 @@ end
 ## The token points to the newly inserted item.
 
 
-@inline function insert!{K,D, Ord <: Ordering}(m::SortedDict{K,D,Ord}, k_, d_)
-    b, i = insert!(m.bt, convert(K,k_), convert(D,d_), false)
+@inline function insert!{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}, k_, v_)
+    b, i = insert!(m.bt, convert(K,k_), convert(V,v_), false)
     b, IntSemiToken(i)
 end
 
 
 
-@inline eltype{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord}) =  Pair{K,D}
-@inline eltype{K,D,Ord <: Ordering}(::Type{SortedDict{K,D,Ord}}) =  Pair{K,D}
-@inline function in{K,D,Ord <: Ordering}(pr::Pair, m::SortedDict{K,D,Ord})
-    i, exactfound = findkey(m.bt,convert(K,pr[1]))
-    return exactfound && isequal(m.bt.data[i].d,convert(D,pr[2]))
+@inline eltype{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}) =  Pair{K,V}
+@inline eltype{K,V,Ord<:Ordering}(::Type{SortedDict{K,V,Ord}}) =  Pair{K,V}
+@inline function in{K,V,Ord<:Ordering}(pr::Pair, m::SortedDict{K,V,Ord})
+    i, exactfound = findkey(m.bt, convert(K, pr[1]))
+    return exactfound && isequal(m.bt.data[i].d, convert(V, pr[2]))
 end
 
 @inline in(::Tuple{Any,Any}, ::SortedDict) =
     throw(ArgumentError("'(k,v) in sorteddict' not supported in Julia 0.4 or 0.5.  See documentation"))
 
 
-@inline keytype{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord}) = K
-@inline keytype{K,D,Ord <: Ordering}(::Type{SortedDict{K,D,Ord}}) = K
-@inline valtype{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord}) = D
-@inline valtype{K,D,Ord <: Ordering}(::Type{SortedDict{K,D,Ord}}) = D
-@inline ordtype{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord}) = Ord
-@inline ordtype{K,D,Ord <: Ordering}(::Type{SortedDict{K,D,Ord}}) = Ord
+@inline keytype{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}) = K
+@inline keytype{K,V,Ord<:Ordering}(::Type{SortedDict{K,V,Ord}}) = K
+@inline valtype{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}) = V
+@inline valtype{K,V,Ord<:Ordering}(::Type{SortedDict{K,V,Ord}}) = V
+@inline ordtype{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}) = Ord
+@inline ordtype{K,V,Ord<:Ordering}(::Type{SortedDict{K,V,Ord}}) = Ord
 
 
 ## First and last return the first and last (key,data) pairs
@@ -235,28 +208,28 @@ end
     exactfound
 end
 
-@inline function get{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord}, k_, default_)
+@inline function get{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}, k_, default_)
     i, exactfound = findkey(m.bt, convert(K,k_))
-   return exactfound? m.bt.data[i].d : convert(D,default_)
+   return exactfound? m.bt.data[i].d : convert(V,default_)
 end
 
 
-function get!{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord}, k_, default_)
+function get!{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}, k_, default_)
     k = convert(K,k_)
     i, exactfound = findkey(m.bt, k)
     if exactfound
         return m.bt.data[i].d
     else
-        default = convert(D,default_)
-        insert!(m.bt,k, default, false)
+        default = convert(V,default_)
+        insert!(m.bt,K,Vefault, false)
         return default
     end
 end
 
 
-function getkey{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord}, k_, default_)
+function getkey{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}, k_, default_)
     i, exactfound = findkey(m.bt, convert(K,k_))
-    exactfound? m.bt.data[i].k : convert(K, default_)
+    exactfound? m.bt.data[i].k : convert(K,Vefault_)
 end
 
 ## Function delete! deletes an item at a given
@@ -279,7 +252,7 @@ end
 
 
 ## Check if two SortedDicts are equal in the sense of containing
-## the same (K,D) pairs.  This sense of equality does not mean
+## the same (K,V) pairs.  This sense of equality does not mean
 ## that semitokens valid for one are also valid for the other.
 
 function isequal(m1::SortedDict, m2::SortedDict)
@@ -307,21 +280,21 @@ function isequal(m1::SortedDict, m2::SortedDict)
 end
 
 
-function mergetwo!{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord},
-                                        m2::Associative{K,D})
+function mergetwo!{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord},
+                                      m2::Associative{K,V})
     for (k,v) in m2
-        m[convert(K,k)] = convert(D,v)
+        m[convert(K,k)] = convert(V,v)
     end
 end
 
-function packcopy{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord})
-    w = SortedDict(Dict{K,D}(),orderobject(m))
+function packcopy{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord})
+    w = SortedDict(Dict{K,V}(),orderobject(m))
     mergetwo!(w,m)
     w
 end
 
-function packdeepcopy{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord})
-    w = SortedDict(Dict{K,D}(),orderobject(m))
+function packdeepcopy{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord})
+    w = SortedDict(Dict{K,V}(),orderobject(m))
     for (k,v) in m
         newk = deepcopy(k)
         newv = deepcopy(v)
@@ -331,15 +304,15 @@ function packdeepcopy{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord})
 end
 
 
-function merge!{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord},
-                                     others::Associative{K,D}...)
+function merge!{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord},
+                                     others::Associative{K,V}...)
     for o in others
         mergetwo!(m,o)
     end
 end
 
-function merge{K,D,Ord <: Ordering}(m::SortedDict{K,D,Ord},
-                                    others::Associative{K,D}...)
+function merge{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord},
+                                    others::Associative{K,V}...)
     result = packcopy(m)
     merge!(result, others...)
     result
@@ -347,5 +320,5 @@ end
 
 
 
-similar{K,D,Ord<:Ordering}(m::SortedDict{K,D,Ord}) =
-    SortedDict{K,D,Ord}(orderobject(m))
+similar{K,V,Ord<:Ordering}(m::SortedDict{K,V,Ord}) =
+    SortedDict{K,V,Ord}(orderobject(m))
